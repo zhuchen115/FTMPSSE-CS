@@ -92,10 +92,16 @@ namespace FTDevice
         public UInt32 Type;
         public UInt32 ID;
         public UInt32 LocId;
-        [MarshalAs(UnmanagedType.LPStr,SizeConst = 16)]
+        [MarshalAs(UnmanagedType.ByValTStr,SizeConst = 16)]
         public string SerialNumber;
-        [MarshalAs(UnmanagedType.LPStr,SizeConst = 64)]
+        [MarshalAs(UnmanagedType.ByValTStr,SizeConst = 64)]
         public string Description;
         public IntPtr ftHandle;
+    }
+
+    public enum SPIMode :byte
+    {
+        MODE0 = 0x31,
+        MODE1 = 0x34
     }
 }

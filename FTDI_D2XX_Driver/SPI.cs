@@ -23,6 +23,7 @@ using System.Runtime.InteropServices;
 
 namespace FTDevice
 {
+    [Obsolete("The Class may be not work because of libMPSSE")]
     public class SPIDriver
     {
         FTStatus status = FTStatus.OK;
@@ -46,9 +47,7 @@ namespace FTDevice
 
         public SPIDriver()
         {   
-            status = SPIDllDriver.SPI_GetNumChannels(ref channels);
-            if (status != FTStatus.OK)
-                throw new FTDIException(status);
+            
         }
         /// <summary>
         /// Get the Information of Channel
@@ -65,10 +64,15 @@ namespace FTDevice
             return node;
         }
 
+        /// <summary>
+        /// Initialize the FTDI device
+        /// </summary>
+        /// <param name="info">The node info of FTDI device</param>
+        /// <returns>The number of FTDI device connected</returns>
         public uint FTDevInit(out FTDeviceListInfoNode[] info)
         {
             uint devNum = 0;
-            status = DllWraper.FT_CreateDeviceList(ref devNum);
+            status = DllWraper.FT_CreateDeviceInfoList(ref devNum);
             if (status != FTStatus.OK)
                 throw new FTDIException(status);
             if (devNum == 0)
@@ -76,11 +80,50 @@ namespace FTDevice
                 info = null;
                 return devNum;
             }
+            // Allocate the memory for unmanaged data
             IntPtr ptrInfo = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(FTDeviceListInfoNode)) * (int)devNum);
+            // Allocate memory for managed data
             info = new FTDeviceListInfoNode[devNum];
-
-
+            status = DllWraper.FT_GetDeviceInfoList(ptrInfo, ref devNum);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status);
+            for(int i=0;i<devNum;i++)
+            {
+                IntPtr ptrElement = new IntPtr(ptrInfo.ToInt64() + Marshal.SizeOf(typeof(FTDeviceListInfoNode)) * i);
+                FTDeviceListInfoNode node = (FTDeviceListInfoNode)Marshal.PtrToStructure(ptrElement, typeof(FTDeviceListInfoNode));
+                info[i] = node;
+            }
+            Marshal.FreeHGlobal(ptrInfo);
+            return devNum;
         }
+
+        /// <summary>
+        /// Initialize the MPSSE
+        /// </summary>
+        /// <param name="index">the device index</param>
+        public void FT_MPSSE_Init(int index=0)
+        {
+            status = DllWraper.FT_Open(index,ref ftHandle);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status,"Cannot Open FTDI device");
+            status = DllWraper.FT_ResetDevice(ftHandle);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Reset FTDI device");
+            status = DllWraper.FT_SetUSBParameters(ftHandle, 64000, 64000);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Set USB on FTDI");
+            status = DllWraper.FT_SetLatencyTimer(ftHandle, 10);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Set  Latency in FTDI");
+            status = DllWraper.FT_SetBitMode(ftHandle, 0, 0);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Reset FTDI Chip");
+            status = DllWraper.FT_SetBitMode(ftHandle, 0, 2);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Initialize MPSSE on FTDI");
+        }
+
+
 
         /// <summary>
         /// Open and initialize the channel
@@ -107,6 +150,19 @@ namespace FTDevice
             if (status != FTStatus.OK)
                 throw new FTDIException(status, "Error in initializing spi channel");
             return 1;
+        }
+
+        public void SPIInit(uint clock = 30000000, byte latency = 1, SPIConfigOption options = SPIConfigOption.MODE0 | SPIConfigOption.CS_DBUS3 | SPIConfigOption.CS_ACTIVELOW, uint pin = 0)
+        {
+            channelconfig = new ChannelConfig();
+            channelconfig.ClockRate = clock;
+            channelconfig.LatencyTimer = latency;
+            channelconfig.configOptions = (uint)options;
+            channelconfig.Pin = pin;
+            status = SPIDllDriver.SPI_InitChannel(ftHandle, ref channelconfig);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Error in initializing spi channel");
+            
         }
 
         /// <summary>

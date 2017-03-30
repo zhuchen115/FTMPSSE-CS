@@ -128,7 +128,7 @@ namespace FTDevice
         public static extern FTStatus FT_EraseEE(IntPtr handle);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Winapi)]
-        public static extern FTStatus FT_CreateDeviceList(ref uint DevNum);
+        public static extern FTStatus FT_CreateDeviceInfoList(ref uint DevNum);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Winapi)]
         public static extern FTStatus FT_GetDeviceInfoList(IntPtr devInfo, ref uint Num);
@@ -138,5 +138,8 @@ namespace FTDevice
 
         [DllImport(DllName, CallingConvention = CallingConvention.Winapi)]
         public static extern FTStatus FT_SetLatencyTimer(IntPtr handle, byte timer);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Winapi)]
+        public static extern FTStatus FT_SetBitMode(IntPtr handle, byte mask, byte mode);
     }
 }
