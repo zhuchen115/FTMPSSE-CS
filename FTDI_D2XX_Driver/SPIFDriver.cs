@@ -80,6 +80,9 @@ namespace FTDevice
             status = DllWraper.FT_SetBitMode(ftHandle, 0, 2);
             if (status != FTStatus.OK)
                 throw new FTDIException(status, "Cannot Initialize MPSSE on FTDI");
+            status = DllWraper.FT_Purge(ftHandle, 3);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "Cannot Initialize MPSSE on FTDI");
             // Config MPSSE
             byte[] outBuf = new byte[8];
             byte[] inBuf = new byte[8];
@@ -165,7 +168,7 @@ namespace FTDevice
             outBuffer[1] = (byte)(clkdiv & 0x00ff);
             outBuffer[2] = (byte)((clkdiv >> 8) & 0x00ff);
             outBuffer[3] = 0x80;
-            outBuffer[4] = 0x00; // All low
+            outBuffer[4] = 0x08; // All low, CS High
             outBuffer[5] = 0xFB; // OOIOOOOO
 
             Marshal.Copy(outBuffer, 0, outptr, 6);
@@ -204,11 +207,16 @@ namespace FTDevice
                     OpCode = 0x10;//Out Rising Edge
                     break;
             }
+
             byte[] datatosend;
             IntPtr outptr;
+            
             uint szSent = 0,szRealOut = 0;
             int szToSend,lenremain = length;
             int i = 0;
+            //First Make CS Low
+            _CS_enable(true);
+            // Then Shift the data out;
             while (lenremain>0)
             {
                 //Separate data in with maxinum 65536 bytes
@@ -230,6 +238,8 @@ namespace FTDevice
                 i++;
                 System.Threading.Thread.Sleep(20);
             }
+            // CS HIGH
+            _CS_enable(false);
             return (int)szRealOut;
             
         }
@@ -260,6 +270,7 @@ namespace FTDevice
             }
             int lenreamin = length,i=0,szReceiveAll = 0;
             uint szSent = 0, szToRead = 0,szRead = 0;
+            _CS_enable(true);
             while(lenreamin>0)
             {
                 szToRead = (lenreamin > 65536) ? 65536 : (uint)lenreamin;
@@ -286,6 +297,7 @@ namespace FTDevice
                 szReceiveAll += (int)szRead;
                 Marshal.FreeHGlobal(ptrRead);
             }
+            _CS_enable(false);
             return szReceiveAll;
         }
 
@@ -309,6 +321,7 @@ namespace FTDevice
             uint szToTransfer = 0,szSent =0 ,szRead = 0;
             IntPtr ptrIn, ptrOut;
             byte[] dIn, dOut;
+            _CS_enable(true);
             while(lenremain>0)
             {
                 szToTransfer = (lenremain > 65536) ? 65536 : (uint)lenremain;
@@ -339,6 +352,7 @@ namespace FTDevice
                 Marshal.FreeHGlobal(ptrOut);
                 i++;
             }
+            _CS_enable(false);
             return szTransfered;
         }
 
@@ -354,6 +368,28 @@ namespace FTDevice
                 ftHandle = IntPtr.Zero;
             }
                 
+        }
+
+        /// <summary>
+        /// Enable the chip select
+        /// </summary>
+        /// <param name="en">true low,false high</param>
+        private void _CS_enable(bool en)
+        {
+            uint szSent = 0;
+            byte[] datatosend = new byte[3];
+            datatosend[0] = 0x80;
+            if (en)
+                datatosend[1] = 0x00;
+            else
+                datatosend[1] = 0x08;
+            datatosend[2] = 0xfb;
+            IntPtr outptr = Marshal.AllocHGlobal(3);
+            Marshal.Copy(datatosend, 0, outptr, 3);
+            status = DllWraper.FT_Write(ftHandle, outptr, 3, ref szSent);
+            if (status != FTStatus.OK)
+                throw new FTDIException(status, "send data Error");
+            Marshal.FreeHGlobal(outptr);
         }
     }
 }
