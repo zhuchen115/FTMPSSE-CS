@@ -40,7 +40,7 @@ namespace ConsoleApplication1
             Console.WriteLine("Description:{0}", devs[devid].Description);
             Console.WriteLine("Serial Number:{0}", devs[devid].SerialNumber);
             drv.FT_MPSSE_Init(devid);
-            Console.WriteLine("Clock Divisor: ");
+            Console.Write("Clock Divisor: ");
             ushort clk = UInt16.Parse(Console.ReadLine());
             drv.SPI_Init(clk);
             while (true)
